@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作品快傳盒 - 零延遲學生作品展示平台</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRious QR Code 生成庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <!-- Google 字體 Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* 隱藏捲軸但保留滾動功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-100">
+                    <i class="fa-solid fa-box-archive text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">作品快傳盒</h1>
+                    <p class="text-xs text-slate-400">Artwork Quick Uploader</p>
+                </div>
+            </div>
+            
+            <!-- Firebase 連線狀態指示燈與設定按鈕 -->
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <span id="connection-badge" class="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-600 border border-amber-200 flex items-center space-x-1">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>Firebase 連線中...</span>
+                </span>
+                
+                <button onclick="openHelpModal()" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition" title="使用說明">
+                    <i class="fa-solid fa-circle-question text-lg"></i>
+                </button>
+                
+                <button onclick="openSettingsModal()" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition" title="連線設定">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-6 w-full flex flex-col">
+        
+        <!-- Firebase Demo 模式警告橫幅 -->
+        <div id="demo-banner" class="hidden mb-6 p-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-start space-x-3">
+                <div class="p-2 bg-white/20 rounded-lg mt-0.5">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold">目前處於「展示示範模式」</h4>
+                    <p class="text-sm opacity-90">應用程式尚未配置您個人的 Firebase 專案。您可以瀏覽介面，但無法儲存或同步資料。</p>
+                </div>
+            </div>
+            <div class="flex space-x-2 shrink-0">
+                <button onclick="openHelpModal()" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium rounded-xl transition">
+                    如何設定 Firebase
+                </button>
+                <button onclick="openSettingsModal()" class="px-4 py-2 bg-white text-amber-700 hover:bg-amber-50 text-sm font-bold rounded-xl transition shadow-md">
+                    立即設定連線
+                </button>
+            </div>
+        </div>
+
+        <!-- 角色入口切換區 -->
+        <div class="mb-8 flex justify-center">
+            <div class="bg-slate-100 p-1.5 rounded-2xl flex space-x-1 shadow-inner w-full max-w-md">
+                <button id="tab-student" onclick="switchRole('student')" class="flex-1 py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 bg-white text-indigo-600 shadow-sm">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>學生入口</span>
+                </button>
+                <button id="tab-teacher" onclick="requestTeacherAccess()" class="flex-1 py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-900">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    <span>教師大螢幕</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== 學生面板 ==================== -->
+        <section id="panel-student" class="space-y-6 max-w-xl mx-auto w-full transition-all duration-300">
+            <!-- 當前任務告示牌 -->
+            <div class="bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 opacity-10 text-9xl">
+                    <i class="fa-solid fa-palette"></i>
+                </div>
+                <div class="relative z-10">
+                    <span class="px-2.5 py-1 bg-white/20 rounded-full text-xs font-semibold tracking-wider">當前課堂任務</span>
+                    <h2 id="student-task-title" class="text-2xl font-black mt-3">載入任務中...</h2>
+                    <p id="student-task-desc" class="text-sm opacity-80 mt-1">請配合老師的說明進行創作並拍照上傳。</p>
+                </div>
+            </div>
+
+            <!-- 學生身份登記 -->
+            <div id="student-identity-card" class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center space-x-3 mb-2">
+                    <div class="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500">
+                        <i class="fa-solid fa-user-tag"></i>
+                    </div>
+                    <h3 class="font-bold text-lg text-slate-800">登記您的名字</h3>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">您的名字（建議填寫座號+姓名）</label>
+                    <input type="text" id="student-name" placeholder="例如：05號 張小明" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium">
+                </div>
+                <button onclick="confirmIdentity()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-100 flex items-center justify-center space-x-2">
+                    <span>確認進入上傳盒</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- 作品拍照與上傳面板 -->
+            <div id="student-upload-card" class="hidden bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div class="flex items-center space-x-2">
+                        <span id="active-student-badge" class="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold border border-emerald-100"></span>
+                    </div>
+                    <button onclick="changeStudentIdentity()" class="text-xs text-slate-400 hover:text-indigo-600 underline">更換身分</button>
+                </div>
+
+                <!-- 檔案選擇與相機按鈕 -->
+                <div class="space-y-4">
+                    <label class="block text-sm font-bold text-slate-700">拍照或上傳您的作品</label>
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-indigo-50/20 transition-all group relative overflow-hidden h-64">
+                        <input type="file" id="file-input" accept="image/*" capture="environment" class="absolute inset-0 opacity-0 cursor-pointer">
+                        <div id="upload-prompt" class="text-center space-y-3">
+                            <div class="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400 group-hover:text-indigo-500 group-hover:scale-110 transition mx-auto border border-slate-100">
+                                <i class="fa-solid fa-camera text-2xl"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-600 group-hover:text-indigo-600">開啟相機或選擇照片</p>
+                                <p class="text-xs text-slate-400 mt-1">支援任何畫作、手作、作業拍照</p>
+                            </div>
+                        </div>
+                        <!-- 壓縮預覽 -->
+                        <img id="image-preview" class="hidden absolute inset-0 w-full h-full object-contain bg-slate-900" src="" alt="預覽">
+                        <button id="btn-clear-preview" onclick="clearPreview(event)" class="hidden absolute top-3 right-3 w-8 h-8 bg-black/60 hover:bg-black text-white rounded-full flex items-center justify-center transition">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 送出按鈕 -->
+                <button id="btn-upload-submit" onclick="submitArtwork()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>上傳作品到大螢幕</span>
+                </button>
+            </div>
+            
+            <!-- 學生端自主觀摩藝廊開關（當老師開啟時，學生才看得到下方區塊） -->
+            <div id="student-gallery-section" class="hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-lg text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-gallery-thumbnails text-indigo-500"></i>
+                        <span>全班作品觀摩牆</span>
+                    </h3>
+                    <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">即時同步中</span>
+                </div>
+                <div id="student-gallery-grid" class="grid grid-cols-2 gap-4">
+                    <!-- 學生自讀的卡片牆 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 教師面板 ==================== -->
+        <section id="panel-teacher" class="hidden space-y-6 transition-all duration-300">
+            <!-- 任務控制中心與數據 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 任務控制卡片 -->
+                <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                <span class="font-bold text-slate-800">當前任務設定</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">任務名稱 (例如：神奇的自畫像)</label>
+                            <input type="text" id="task-input-title" placeholder="請輸入任務名稱" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">任務說明/提示 (選填)</label>
+                            <textarea id="task-input-desc" placeholder="例如：利用鮮豔的色彩表現您的心情..." class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none h-16 resize-none font-medium text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-slate-100 flex space-x-2 mt-4">
+                        <button onclick="publishTask()" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition shadow-md shadow-indigo-100">
+                            發布/重設任務
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 課堂數據看板 -->
+                <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <span class="font-bold text-slate-800 flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-pie text-indigo-500"></i>
+                            <span>課堂實時狀態</span>
+                        </span>
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                                <span class="text-xs text-slate-400 block font-medium">已繳交人數</span>
+                                <span id="stat-count" class="text-3xl font-black text-indigo-600">0</span>
+                            </div>
+                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                                <span class="text-xs text-slate-400 block font-medium">未講評作品</span>
+                                <span id="stat-pending" class="text-3xl font-black text-amber-500">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 教師端功能控制 -->
+                    <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-sm mt-4">
+                        <span class="text-slate-500 font-bold">學生觀摩藝廊模式</span>
+                        <button id="btn-toggle-gallery-sharing" onclick="toggleGallerySharing()" class="w-12 h-6 rounded-full bg-slate-200 p-0.5 transition-all duration-300 relative focus:outline-none">
+                            <span class="w-5 h-5 rounded-full bg-white shadow-md block absolute top-0.5 left-0.5 transition-all duration-300 transform" id="toggle-dot"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 學生快速加入二維碼 -->
+                <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center space-x-6">
+                    <div class="bg-slate-50 p-2 rounded-2xl border border-slate-100 shrink-0">
+                        <canvas id="qr-canvas-student" class="w-32 h-32"></canvas>
+                    </div>
+                    <div class="space-y-2 flex-grow">
+                        <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold">平板掃碼直連</span>
+                        <h4 class="font-bold text-slate-800">學生快傳入口</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">請將此 QR Code 投影至大螢幕，學生平板掃描即可進入課堂，免去繁瑣網址輸入。</p>
+                        <button onclick="copyStudentLink()" class="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 text-xs font-semibold rounded-lg transition flex items-center space-x-1">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>複製連結</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 即時藝廊卡片牆 -->
+            <div class="space-y-4 pt-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-black text-xl text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-images text-indigo-500"></i>
+                        <span>實時藝廊作品牆</span>
+                    </h3>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="clearAllArtworks()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                            <span>清空全部作品</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 卡片排列 (Responsive Grid with nice masonry effect simulation) -->
+                <div id="teacher-gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <!-- Artworks dynamically loaded here -->
+                </div>
+
+                <!-- 藝廊空狀態 -->
+                <div id="gallery-empty-state" class="hidden py-24 text-center space-y-4 bg-white rounded-3xl border border-slate-200">
+                    <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto border border-slate-100">
+                        <i class="fa-solid fa-photo-film text-2xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-500">目前還沒有同學上傳作品喔！</p>
+                        <p class="text-xs text-slate-400 mt-1">請引導學生使用平板拍照並傳送過來。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部資訊 -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>© 2026 作品快傳盒 - 專為教育場景設計的免傳輸展示系統</p>
+        </div>
+    </footer>
+
+    <!-- ==================== 模態視窗 (Modals) ==================== -->
+
+    <!-- 教學視窗 (Help Modal) -->
+    <div id="modal-help" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative no-scrollbar">
+            <button onclick="closeHelpModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div class="flex items-center space-x-3 border-b border-slate-100 pb-4">
+                <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+                    <i class="fa-solid fa-circle-info text-xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800">如何使用 作品快傳盒 系統</h3>
+            </div>
+            
+            <div class="space-y-6 text-sm text-slate-600 leading-relaxed">
+                <!-- 申請 Firebase 步驟 -->
+                <div>
+                    <h4 class="font-black text-indigo-600 mb-3 text-lg flex items-center gap-2">
+                        <span class="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs">1</span>
+                        申請與配置您的個人 Firebase
+                    </h4>
+                    <div class="space-y-3 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                        <p class="font-semibold text-slate-700">作品快傳盒採用「無伺服器託管」架構，您的圖片與資料都會直接存放在您專屬的免費 Firebase 空間中，100% 保障學生的隱私安全！請按照以下步驟完成設定：</p>
+                        <ol class="list-decimal list-inside space-y-3 pl-1 text-slate-600">
+                            <li>
+                                <strong class="text-slate-800">登入主控台：</strong> 
+                                前往 <a href="https://console.firebase.google.com/" target="_blank" class="text-indigo-600 underline font-semibold hover:text-indigo-800">Firebase Console 官網</a>，並使用您的 Google 帳號進行登入。
+                            </li>
+                            <li>
+                                <strong class="text-slate-800">建立新專案 (Project)：</strong> 
+                                點擊畫面的 <span class="bg-white px-2 py-0.5 rounded border shadow-sm font-medium">新增專案 (Add Project)</span> ➜ 輸入專案名稱（例如：<code class="bg-slate-100 px-1 rounded text-indigo-600 font-mono">quick-uploader</code>）➜ 依序點選繼續（推薦關閉 Google Analytics 較快完成）➜ 完成建立。
+                            </li>
+                            <li>
+                                <strong class="text-slate-800">建立 Firestore 資料庫：</strong> 
+                                在專案控制面板的左側選單點擊 <span class="font-bold text-slate-800"><i class="fa-solid fa-database mr-1"></i>Firestore Database</span> ➜ 點擊 <span class="bg-indigo-600 text-white px-2.5 py-1 rounded shadow-sm font-medium">建立資料庫 (Create database)</span> ➜ 選擇伺服器位置（可選 <code class="bg-slate-100 px-1 rounded font-mono text-xs">asia-east1</code> 台灣）➜ 安全設定務必選擇 <span class="font-bold text-amber-600">以測試模式啟動 (Start in test mode)</span> ➜ 點擊啟用。
+                            </li>
+                            <li>
+                                <strong class="text-slate-800">註冊網頁應用程式 (Web App)：</strong> 
+                                點擊控制面板左上角「專案總覽 (Project Overview)」旁的 <i class="fa-solid fa-gear text-slate-400 mr-1"></i>齒輪 ➜ <span class="font-bold text-slate-800">專案設定</span> ➜ 拉到下方「您的應用程式」區塊 ➜ 點擊網頁圖示 <span class="bg-slate-200 px-2 py-0.5 rounded text-slate-700 text-xs"><i class="fa-solid fa-code"></i> (Web App)</span> ➜ 輸入暱稱（例如：<code class="bg-slate-100 px-1 rounded font-mono">artbox-web</code>）➜ 點擊註冊。
+                            </li>
+                            <li>
+                                <strong class="text-slate-800">複製設定 Config 物件：</strong> 
+                                註冊成功後，畫面會顯示包含 <code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono text-indigo-600">const firebaseConfig = { ... };</code> 的程式碼。請複製其中括號內的六行內容（也就是 <code class="font-mono text-xs text-indigo-600">apiKey</code> 到 <code class="font-mono text-xs text-indigo-600">appId</code>）。
+                            </li>
+                            <li>
+                                <strong class="text-slate-800">設定並連線：</strong> 
+                                複製後，回到本平台網頁，點擊右上角的 <i class="fa-solid fa-gear text-slate-500"></i> 設定按鈕，將內容貼到設定輸入框中並點選儲存。網頁將會重新整理並建立專屬您的雲端快傳資料庫！
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- 派送任務教學 -->
+                <div>
+                    <h4 class="font-black text-indigo-600 mb-3 text-lg flex items-center gap-2">
+                        <span class="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs">2</span>
+                        發布任務與展示
+                    </h4>
+                    <p class="pl-2">教師透過電腦開啟本系統，輸入預設密碼「tpet」進入教師入口。點選發布新任務並將學生 QR Code 投放到大螢幕上。學生即可使用平板拍照隨時同步傳送！</p>
+                </div>
+
+                <!-- 安全規則 -->
+                <div>
+                    <h4 class="font-black text-indigo-600 mb-3 text-lg flex items-center gap-2">
+                        <span class="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs">3</span>
+                        推薦：Firestore 安全規則設定
+                    </h4>
+                    <p class="mb-2 pl-2">請在您的 Firebase Firestore 規則中貼上下列程式碼，即可保證系統運作：</p>
+                    <pre class="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono overflow-x-auto">
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/public/data/{collection}/{document} {
+      allow read, write: if true;
+    }
+  }
+}</pre>
+                </div>
+            </div>
+            <div class="pt-4 border-t border-slate-100">
+                <button onclick="closeHelpModal()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition">
+                    我知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定視窗 (Settings Modal) -->
+    <div id="modal-settings" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative">
+            <button onclick="closeSettingsModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div class="flex items-center space-x-3 border-b border-slate-100 pb-4">
+                <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+                    <i class="fa-solid fa-sliders text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">Firebase 連線設定</h3>
+                    <p class="text-xs text-slate-400">貼上並分享您的連線配置</p>
+                </div>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">貼上 Firebase 設定物件</label>
+                    <p class="text-xs text-slate-400 mb-2">請複製 firebaseConfig 物件 { 和 } 之間的內容。請勿貼上大括號 {} 或 const 變數宣告。</p>
+                    <textarea id="config-textarea" placeholder='apiKey: "AIza...",&#10;authDomain: "...",&#10;...' class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none h-40 font-mono text-xs resize-none"></textarea>
+                </div>
+
+                <div class="flex space-x-2">
+                    <button onclick="saveConfigFromTextarea()" class="flex-grow py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition">
+                        儲存連線設定
+                    </button>
+                    <button onclick="resetConfig()" class="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-sm rounded-xl border border-rose-100 transition" title="清除設定">
+                        清除本機設定
+                    </button>
+                </div>
+
+                <!-- 分享產生器 -->
+                <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
+                    <h4 class="font-bold text-sm text-slate-800">生成分享連結 (免再次輸入設定)</h4>
+                    <p class="text-xs text-slate-400 leading-normal">系統會將設定安全加密在連結中。其他學生或行動載具點此連結直接連線：</p>
+                    <div class="flex space-x-2">
+                        <input type="text" id="share-url-input" readOnly class="flex-grow px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs focus:outline-none" placeholder="尚未儲存設定...">
+                        <button onclick="copyShareLink()" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg transition shrink-0">
+                            複製連結
+                        </button>
+                    </div>
+                    <!-- 分享 QR Code -->
+                    <div class="flex flex-col items-center pt-2">
+                        <canvas id="qr-canvas-config" class="bg-white p-2 rounded-xl border border-slate-100"></canvas>
+                        <span class="text-[10px] text-slate-400 mt-1">平板掃描上方二維碼自動完成連線</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 教師登入密碼視窗 -->
+    <div id="modal-password" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative text-center">
+            <button onclick="closePasswordModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mx-auto">
+                    <i class="fa-solid fa-key text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">教師安全驗證</h3>
+                <p class="text-xs text-slate-400">請輸入 TPET 密碼進入教師大螢幕模式</p>
+            </div>
+            <div>
+                <input type="password" id="teacher-pwd-input" placeholder="請輸入密碼" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 text-center font-bold tracking-widest text-lg">
+            </div>
+            <button onclick="validateTeacherPassword()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition">
+                驗證身分
+            </button>
+        </div>
+    </div>
+
+    <!-- 藝廊講評與線上畫筆視窗 (Viewer & Annotation Modal) -->
+    <div id="modal-critique" class="hidden fixed inset-0 bg-slate-950/95 z-50 flex flex-col md:flex-row h-screen">
+        <!-- 畫布/原圖展示區 (左側/頂部) -->
+        <div class="flex-grow flex items-center justify-center relative p-4 h-2/3 md:h-full bg-slate-900 overflow-hidden select-none">
+            
+            <!-- 大圖容器 -->
+            <div id="critique-container" class="relative w-full h-full flex items-center justify-center">
+                <!-- 原學生作品 -->
+                <img id="critique-image" class="max-w-full max-h-full object-contain pointer-events-none rounded-lg shadow-xl" src="" alt="作品" style="transform: rotate(0deg); transition: transform 0.2s ease;">
+                
+                <!-- 線上畫筆透明畫布層 (動態疊加於原圖上方) -->
+                <canvas id="critique-canvas" class="absolute cursor-crosshair z-10 select-none touch-none" style="pointer-events: auto;"></canvas>
+            </div>
+
+            <!-- 旋轉與重置操作懸浮按鈕 -->
+            <div class="absolute bottom-6 left-6 flex space-x-2 z-20">
+                <button onclick="rotateImage()" class="p-3 bg-black/60 hover:bg-black text-white rounded-xl transition backdrop-blur flex items-center justify-center space-x-2" title="向右旋轉 90 度">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span class="text-xs font-bold">旋轉</span>
+                </button>
+                <button onclick="clearCritiqueCanvas()" class="p-3 bg-black/60 hover:bg-black text-white rounded-xl transition backdrop-blur flex items-center justify-center space-x-2" title="清除所有筆跡">
+                    <i class="fa-solid fa-eraser"></i>
+                    <span class="text-xs font-bold">清除筆跡</span>
+                </button>
+            </div>
+            
+            <button onclick="closeCritiqueModal()" class="absolute top-6 left-6 p-3 bg-black/60 hover:bg-black text-white rounded-xl transition backdrop-blur z-20 flex items-center space-x-1">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span class="text-xs font-bold">返回藝廊</span>
+            </button>
+        </div>
+
+        <!-- 講評操作面板 (右側/底部) -->
+        <div class="w-full md:w-96 bg-white border-t md:border-t-0 md:border-l border-slate-200 flex flex-col justify-between h-1/3 md:h-full z-20">
+            <div class="p-6 overflow-y-auto flex-grow space-y-6">
+                <div>
+                    <span id="critique-student-tag" class="px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-semibold">張小明 的作品</span>
+                    <h3 id="critique-task-title" class="text-xl font-black text-slate-800 mt-2">任務：未知任務</h3>
+                    <p id="critique-timestamp" class="text-xs text-slate-400 mt-1">上傳時間：載入中</p>
+                </div>
+
+                <!-- 畫筆設定 -->
+                <div class="space-y-3">
+                    <h4 class="font-bold text-sm text-slate-700 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-paintbrush text-indigo-500"></i>
+                        <span>線上批閱畫筆設定</span>
+                    </h4>
+                    <!-- 顏色選擇 -->
+                    <div class="flex items-center space-x-2">
+                        <button onclick="setBrushColor('#f43f5e', this)" class="w-8 h-8 rounded-full bg-rose-500 border-2 border-white ring-2 ring-rose-500/50 transition transform scale-110" data-color="#f43f5e"></button>
+                        <button onclick="setBrushColor('#eab308', this)" class="w-8 h-8 rounded-full bg-yellow-500 border-2 border-white ring-2 ring-transparent transition transform" data-color="#eab308"></button>
+                        <button onclick="setBrushColor('#10b981', this)" class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-transparent transition transform" data-color="#10b981"></button>
+                        <button onclick="setBrushColor('#3b82f6', this)" class="w-8 h-8 rounded-full bg-blue-500 border-2 border-white ring-2 ring-transparent transition transform" data-color="#3b82f6"></button>
+                        <button onclick="setBrushColor('eraser', this)" class="w-8 h-8 rounded-full bg-slate-100 border-2 border-slate-300 ring-2 ring-transparent transition transform flex items-center justify-center text-slate-500 text-xs font-bold" data-color="eraser">
+                            <i class="fa-solid fa-eraser"></i>
+                        </button>
+                    </div>
+                    <!-- 粗細設定 -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>畫筆粗細</span>
+                            <span id="brush-size-text">5px</span>
+                        </div>
+                        <input type="range" id="brush-size" min="2" max="25" value="5" oninput="updateBrushSize(this.value)" class="w-full accent-indigo-600">
+                    </div>
+                </div>
+
+                <!-- 文字講評評語 -->
+                <div class="space-y-2">
+                    <h4 class="font-bold text-sm text-slate-700 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-comment-dots text-indigo-500"></i>
+                        <span>教師講評評語</span>
+                    </h4>
+                    <textarea id="critique-comment" placeholder="輸入給學生的講評或稱讚，學生即時可見..." class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-24 text-sm font-medium resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- 動作 -->
+            <div class="p-6 border-t border-slate-100 bg-slate-50 flex space-x-3">
+                <button onclick="saveCritique()" class="flex-grow py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-100 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-check"></i>
+                    <span>儲存批閱講評</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自訂提示 (Toast) 通知 -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-3 pointer-events-none"></div>
+
+    <!-- 自訂確認框 (Confirm Modal) -->
+    <div id="modal-confirm" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative text-center">
+            <div id="confirm-icon-wrapper" class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-circle-question"></i>
+            </div>
+            <div>
+                <h3 id="confirm-title" class="text-lg font-bold text-slate-800">您確定嗎？</h3>
+                <p id="confirm-message" class="text-sm text-slate-400 mt-1">此操作將無法還原，請謹慎點選。</p>
+            </div>
+            <div class="flex space-x-2 pt-2">
+                <button id="btn-confirm-cancel" class="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl text-sm transition">
+                    取消
+                </button>
+                <button id="btn-confirm-ok" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-rose-100">
+                    確定
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==================== Firebase & 業務邏輯 ==================== -->
+    <script type="module">
+        // 匯入 Firebase 11+ SDK 模組
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // ==========================================
+        // 優先級 2：程式碼寫死 (Hardcoded) 預設值
+        // 使用者請直接修改上述六行引號內的數值，填入您真實的 Firebase 設定即可 (無需更動變數名稱或大括號)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "demo",
+            authDomain: "demo",
+            projectId: "demo",
+            storageBucket: "demo",
+            messagingSenderId: "demo",
+            appId: "demo"
+        };
+
+        // 全域變數定義
+        let activeConfig = null;
+        let isDemoMode = true;
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let currentRole = 'student'; // 'student' | 'teacher'
+        let currentTask = { id: 'default', title: '預設任務：請拍下您的精美作品', desc: '目前尚未發布新任務' };
+        let studentName = "";
+        let selectedFileBase64 = "";
+        let artworksUnsubscribe = null;
+        let tasksUnsubscribe = null;
+        
+        // 用於教師端篩選或總數據
+        let allArtworksList = [];
+        let allTasksList = [];
+
+        // 講評視窗狀態
+        let activeCritiqueDocId = null;
+        let critiqueImgRotation = 0;
+        let brushColor = '#f43f5e';
+        let brushWidth = 5;
+        let isDrawing = false;
+        let isDrawingModeActive = true;
+        let lastX = 0;
+        let lastY = 0;
+
+        // 全域元件暴露給 HTML event handlers
+        window.openSettingsModal = openSettingsModal;
+        window.closeSettingsModal = closeSettingsModal;
+        window.openHelpModal = openHelpModal;
+        window.closeHelpModal = closeHelpModal;
+        window.saveConfigFromTextarea = saveConfigFromTextarea;
+        window.resetConfig = resetConfig;
+        window.switchRole = switchRole;
+        window.requestTeacherAccess = requestTeacherAccess;
+        window.confirmIdentity = confirmIdentity;
+        window.changeStudentIdentity = changeStudentIdentity;
+        window.submitArtwork = submitArtwork;
+        window.clearPreview = clearPreview;
+        window.publishTask = publishTask;
+        window.toggleGallerySharing = toggleGallerySharing;
+        window.clearAllArtworks = clearAllArtworks;
+        window.validateTeacherPassword = validateTeacherPassword;
+        window.closePasswordModal = closePasswordModal;
+        window.copyStudentLink = copyStudentLink;
+        window.copyShareLink = copyShareLink;
+        
+        // 講評功能
+        window.openCritique = openCritique;
+        window.closeCritiqueModal = closeCritiqueModal;
+        window.rotateImage = rotateImage;
+        window.setBrushColor = setBrushColor;
+        window.updateBrushSize = updateBrushSize;
+        window.clearCritiqueCanvas = clearCritiqueCanvas;
+        window.saveCritique = saveCritique;
+
+        // 應用程式初始化入口
+        window.onload = async function() {
+            initAppConfig();
+            initDrawingEvents();
+            setupDragAndDrop();
+        }
+
+        // ==================== 1. 多重設定來源邏輯 (Multi-source Config) ====================
+        function initAppConfig() {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const storageKey = `firebaseConfig_${appId}`;
+
+            // --- 優先級 1：網址參數匯入 ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const encryptedConfig = urlParams.get('config');
+
+            if (encryptedConfig) {
+                try {
+                    const decryptedString = atob(encryptedConfig);
+                    const parsed = JSON.parse(decryptedString);
+                    if (parsed && parsed.apiKey && parsed.apiKey !== 'demo') {
+                        // 寫入 LocalStorage 覆蓋舊設定
+                        localStorage.setItem(storageKey, JSON.stringify(parsed));
+                        showToast("連線設定已透過加密連結匯入成功！", "success");
+                        // 清除網址參數並重新載入
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        location.reload();
+                        return;
+                    }
+                } catch (e) {
+                    showToast("網址加密連線設定解析失敗，請確認連結完整性", "error");
+                }
+            }
+
+            // --- 優先級 2 & 3：檢查 Hardcoded 或 LocalStorage ---
+            let storedConfig = null;
+            try {
+                storedConfig = JSON.parse(localStorage.getItem(storageKey));
+            } catch(e) {}
+
+            // 是否硬編碼不為 demo
+            const isHardcodedValid = firebaseConfig.apiKey && firebaseConfig.apiKey !== "demo";
+
+            if (isHardcodedValid) {
+                activeConfig = firebaseConfig;
+                isDemoMode = false;
+            } else if (storedConfig && storedConfig.apiKey && storedConfig.apiKey !== "demo") {
+                activeConfig = storedConfig;
+                isDemoMode = false;
+            } else {
+                activeConfig = firebaseConfig; // 回歸 "demo"
+                isDemoMode = true;
+            }
+
+            // 更新 UI 頂端狀態列
+            updateConnectionBadge();
+
+            // 若不為 Demo，初始化 Firebase
+            if (!isDemoMode) {
+                initFirebase();
+            } else {
+                document.getElementById('demo-banner').classList.remove('hidden');
+                initMockMode();
+            }
+
+            // 生成並預裝分享設定資料到設定視窗
+            generateShareLinks();
+        }
+
+        // ==================== 2. Firebase 初始化與匿名登入 ====================
+        async function initFirebase() {
+            try {
+                const app = initializeApp(activeConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Rule 3: 先執行匿名登入，成功後才進行 Firestore 連線
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        return await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        return await signInAnonymously(auth);
+                    }
+                };
+
+                const userCredential = await initAuth();
+                currentUser = userCredential.user;
+
+                // 註冊狀態改變監聽
+                onAuthStateChanged(auth, (usr) => {
+                    if (usr) {
+                        currentUser = usr;
+                        showToast(`伺服器通訊連結建立成功`, "success");
+                        document.getElementById('connection-badge').className = "px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center space-x-1";
+                        document.getElementById('connection-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>Firebase 雲端已連線</span>`;
+                        
+                        // 開始訂閱即時資料流
+                        subscribeToRealtimeData();
+                    } else {
+                        document.getElementById('connection-badge').className = "px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200 flex items-center space-x-1";
+                        document.getElementById('connection-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>Firebase 連線中斷</span>`;
+                    }
+                });
+
+            } catch (err) {
+                console.error("Firebase 連線初始化失敗:", err);
+                showToast(`連線初始化失敗，請檢查 Firebase 連線資訊或安全規則。`, "error");
+                document.getElementById('connection-badge').className = "px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200 flex items-center space-x-1";
+                document.getElementById('connection-badge').innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span><span>連線配置錯誤</span>`;
+            }
+        }
+
+        // ==================== 3. 訂閱 Firestore 即時資料 (符合 Rule 1, 2, 3) ====================
+        function subscribeToRealtimeData() {
+            if (!currentUser || !db) return;
+
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            // 確保每次重置時釋放舊有訂閱
+            if (artworksUnsubscribe) artworksUnsubscribe();
+            if (tasksUnsubscribe) tasksUnsubscribe();
+
+            // 1. 訂閱任務 (Rule 1: Path Structure)
+            const tasksCollection = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
+            tasksUnsubscribe = onSnapshot(tasksCollection, (snapshot) => {
+                let taskList = [];
+                snapshot.forEach(doc => {
+                    taskList.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // 排除複雜查詢 (Rule 2): 在記憶體排序並找到目前啟用中任務
+                taskList.sort((a, b) => b.timestamp - a.timestamp);
+                allTasksList = taskList;
+
+                if (taskList.length > 0) {
+                    currentTask = taskList[0]; // 最新的為目前任務
+                    document.getElementById('student-task-title').textContent = `【${currentTask.title}】`;
+                    document.getElementById('student-task-desc').textContent = currentTask.desc || '請拍下作品，並在上傳盒中填寫大名即可傳送！';
+                    
+                    // 教師端設定回顯
+                    if (currentRole === 'teacher') {
+                        document.getElementById('task-input-title').value = currentTask.title;
+                        document.getElementById('task-input-desc').value = currentTask.desc || '';
+                    }
+                } else {
+                    currentTask = { id: 'default', title: '請等候老師派發作品任務', desc: '目前尚未發布新任務' };
+                    document.getElementById('student-task-title').textContent = currentTask.title;
+                    document.getElementById('student-task-desc').textContent = currentTask.desc;
+                }
+            }, (error) => {
+                showToast("訂閱任務失敗: " + error.message, "error");
+            });
+
+            // 2. 訂閱上傳的作品 (Rule 1: Path Structure)
+            const artworksCollection = collection(db, 'artifacts', appId, 'public', 'data', 'artworks');
+            artworksUnsubscribe = onSnapshot(artworksCollection, (snapshot) => {
+                let list = [];
+                snapshot.forEach(doc => {
+                    list.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Rule 2: Client-side sorting (由新到舊)
+                list.sort((a, b) => b.timestamp - a.timestamp);
+                allArtworksList = list;
+
+                // 渲染至介面
+                renderGallery();
+                updateStats();
+            }, (error) => {
+                showToast("訂閱藝廊更新失敗，請檢查 Firestore 安全規則設置！", "error");
+            });
+        }
+
+        // ==================== 4. Demo 示範模擬模式 ====================
+        function initMockMode() {
+            // 模擬一些資料展示介面
+            currentTask = { id: 'mock-task', title: '神奇的水彩森林', desc: '使用不同的冷暖色系畫出森林樹木的空間感' };
+            document.getElementById('student-task-title').textContent = `【${currentTask.title}】`;
+            document.getElementById('student-task-desc').textContent = currentTask.desc;
+
+            allArtworksList = [
+                {
+                    id: 'mock-1',
+                    studentName: '03號 李志明',
+                    image: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=400&q=80',
+                    timestamp: Date.now() - 300000,
+                    taskId: 'mock-task',
+                    taskTitle: '神奇的水彩森林',
+                    comment: '樹林的層次感表現得非常好！冷暖色調對比強烈。',
+                    annotations: ''
+                },
+                {
+                    id: 'mock-2',
+                    studentName: '12號 林小美',
+                    image: 'https://images.unsplash.com/photo-1579783928621-7a13d66a6211?w=400&q=80',
+                    timestamp: Date.now() - 600000,
+                    taskId: 'mock-task',
+                    taskTitle: '神奇的水彩森林',
+                    comment: '',
+                    annotations: ''
+                }
+            ];
+
+            renderGallery();
+            updateStats();
+        }
+
+        // ==================== 5. 圖片壓縮邏輯 (壓縮至 800px 以下 JPEG Base64) ====================
+        const fileInput = document.getElementById('file-input');
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showToast("所選檔案不是圖片格式！", "error");
+                return;
+            }
+
+            const preview = document.getElementById('image-preview');
+            const clearBtn = document.getElementById('btn-clear-preview');
+            const uploadPrompt = document.getElementById('upload-prompt');
+
+            // 壓縮處理
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height * MAX_WIDTH) / width);
+                        width = MAX_WIDTH;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 輸出為 JPEG, 品質 0.75
+                    selectedFileBase64 = canvas.toDataURL('image/jpeg', 0.75);
+
+                    // 渲染預覽
+                    preview.src = selectedFileBase64;
+                    preview.classList.remove('hidden');
+                    clearBtn.classList.remove('hidden');
+                    uploadPrompt.classList.add('hidden');
+                }
+                img.src = evt.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function clearPreview(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('file-input').value = "";
+            selectedFileBase64 = "";
+            document.getElementById('image-preview').src = "";
+            document.getElementById('image-preview').classList.add('hidden');
+            document.getElementById('btn-clear-preview').classList.add('hidden');
+            document.getElementById('upload-prompt').classList.remove('hidden');
+        }
+
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('border-indigo-500', 'bg-indigo-50/40');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/40');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    document.getElementById('file-input').files = files;
+                    const event = new Event('change');
+                    document.getElementById('file-input').dispatchEvent(event);
+                }
+            });
+        }
+
+        // ==================== 6. 業務端操作 (上傳、派送任務) ====================
+        
+        // 學生身份登入
+        function confirmIdentity() {
+            const name = document.getElementById('student-name').value.trim();
+            if (!name) {
+                showToast("請先輸入您的姓名或座號！", "warning");
+                return;
+            }
+            studentName = name;
+            document.getElementById('student-identity-card').classList.add('hidden');
+            document.getElementById('student-upload-card').classList.remove('hidden');
+            document.getElementById('active-student-badge').textContent = `學生：${studentName}`;
+        }
+
+        function changeStudentIdentity() {
+            studentName = "";
+            document.getElementById('student-identity-card').classList.remove('hidden');
+            document.getElementById('student-upload-card').classList.add('hidden');
+            clearPreview();
+        }
+
+        // 學生作品上傳提交 (Rule 1, Rule 3 Protection)
+        async function submitArtwork() {
+            if (isDemoMode) {
+                showToast("目前處於示範模式，請先進入設定配置您的 Firebase 連線即可進行上傳！", "warning");
+                openSettingsModal();
+                return;
+            }
+
+            if (!studentName) {
+                showToast("請填寫大名！", "warning");
+                return;
+            }
+
+            if (!selectedFileBase64) {
+                showToast("請先對作品拍照或上傳檔案！", "warning");
+                return;
+            }
+
+            const btn = document.getElementById('btn-upload-submit');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> <span>作品打包傳送中...</span>`;
+
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const artworksCollection = collection(db, 'artifacts', appId, 'public', 'data', 'artworks');
+
+                await addDoc(artworksCollection, {
+                    studentName: studentName,
+                    image: selectedFileBase64,
+                    timestamp: Date.now(),
+                    taskId: currentTask.id || 'default',
+                    taskTitle: currentTask.title || '一般繳交',
+                    comment: '',        // 教師評語
+                    annotations: ''     // 講評畫布層 Base64 PNG
+                });
+
+                showToast("作品上傳成功！老師的大螢幕已收到囉！", "success");
+                clearPreview();
+                
+            } catch (err) {
+                console.error(err);
+                showToast("傳送失敗，請確認 Firebase 設定及網路狀態！", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>上傳作品到大螢幕</span>`;
+            }
+        }
+
+        // 教師發布任務
+        async function publishTask() {
+            if (isDemoMode) {
+                showToast("示範模式無法發布任務，請先設定您的專案", "warning");
+                openSettingsModal();
+                return;
+            }
+
+            const title = document.getElementById('task-input-title').value.trim();
+            const desc = document.getElementById('task-input-desc').value.trim();
+
+            if (!title) {
+                showToast("任務名稱不能為空！", "warning");
+                return;
+            }
+
+            showConfirm("發布新任務", "這將會更新課堂學生端看見的當前任務，是否確認？", async () => {
+                try {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    const tasksCollection = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
+
+                    await addDoc(tasksCollection, {
+                        title: title,
+                        desc: desc,
+                        timestamp: Date.now()
+                    });
+
+                    showToast("新任務已同步推播給全班學生！", "success");
+                } catch (err) {
+                    showToast("任務發布失敗，請確認權限或連線設定", "error");
+                }
+            });
+        }
+
+        // 開啟/關閉 學生觀摩藝廊模式
+        async function toggleGallerySharing() {
+            if (isDemoMode) {
+                showToast("示範模式不支援設定分享狀態", "warning");
+                return;
+            }
+            
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const toggleDot = document.getElementById('toggle-dot');
+            const toggleBtn = document.getElementById('btn-toggle-gallery-sharing');
+            const nextState = toggleBtn.classList.contains('bg-slate-200');
+
+            try {
+                // 將設定存入任務文件或特定公共設定文件
+                const settingsDoc = doc(db, 'artifacts', appId, 'public', 'data', 'config_sharing', 'status');
+                await setDoc(settingsDoc, { openGallery: nextState });
+                
+                updateGalleryToggleUI(nextState);
+                showToast(nextState ? "已開啟「學生端即時觀摩藝廊」！" : "已關閉「學生端即時觀摩藝廊」", "success");
+            } catch(e) {
+                showToast("變更觀摩狀態失敗", "error");
+            }
+        }
+
+        function updateGalleryToggleUI(isOpen) {
+            const toggleDot = document.getElementById('toggle-dot');
+            const toggleBtn = document.getElementById('btn-toggle-gallery-sharing');
+            const studentGallery = document.getElementById('student-gallery-section');
+
+            if (isOpen) {
+                toggleBtn.className = "w-12 h-6 rounded-full bg-emerald-500 p-0.5 transition-all duration-300 relative focus:outline-none";
+                toggleDot.className = "w-5 h-5 rounded-full bg-white shadow-md block absolute top-0.5 right-0.5 transition-all duration-300 transform";
+                studentGallery.classList.remove('hidden');
+            } else {
+                toggleBtn.className = "w-12 h-6 rounded-full bg-slate-200 p-0.5 transition-all duration-300 relative focus:outline-none";
+                toggleDot.className = "w-5 h-5 rounded-full bg-white shadow-md block absolute top-0.5 left-0.5 transition-all duration-300 transform";
+                studentGallery.classList.add('hidden');
+            }
+        }
+
+        // 清空所有作品
+        function clearAllArtworks() {
+            if (isDemoMode) {
+                allArtworksList = [];
+                renderGallery();
+                updateStats();
+                showToast("已清空模擬作品（示範模式）", "success");
+                return;
+            }
+
+            showConfirm("危險操作！", "確定要清空全班目前上傳的所有作品嗎？此操作無法復原！", async () => {
+                try {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    // 批次刪除，先讀取所有，再進行刪除 (Firestore 限制在 client-side 一個個 doc 刪除)
+                    showToast("正在清空藝廊中，請稍候...", "warning");
+                    for (let artwork of allArtworksList) {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'artworks', artwork.id);
+                        await deleteDoc(docRef);
+                    }
+                    showToast("全班作品已完全清空！", "success");
+                } catch (err) {
+                    showToast("清空作品發生錯誤：" + err.message, "error");
+                }
+            });
+        }
+
+        // ==================== 7. 渲染實時藝廊 UI ====================
+        function renderGallery() {
+            const gridTeacher = document.getElementById('teacher-gallery-grid');
+            const gridStudent = document.getElementById('student-gallery-grid');
+            const emptyState = document.getElementById('gallery-empty-state');
+
+            // 清空舊 HTML
+            gridTeacher.innerHTML = "";
+            gridStudent.innerHTML = "";
+
+            if (allArtworksList.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            allArtworksList.forEach(art => {
+                const isCritiqued = art.comment || art.annotations;
+                const timeStr = new Date(art.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // --- 1. 建立教師大螢幕卡片 ---
+                const teacherCard = document.createElement('div');
+                teacherCard.className = "bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-pointer flex flex-col group relative";
+                teacherCard.onclick = () => openCritique(art.id);
+                
+                teacherCard.innerHTML = `
+                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden relative">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition duration-300" src="${art.image}" alt="作品">
+                        ${art.annotations ? `<img class="absolute inset-0 w-full h-full object-cover pointer-events-none" src="${art.annotations}">` : ''}
+                        
+                        <!-- 繳交時間與標籤 -->
+                        <span class="absolute top-3 left-3 bg-black/60 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center space-x-1">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>${timeStr}</span>
+                        </span>
+
+                        <!-- 狀態指示 -->
+                        <span class="absolute top-3 right-3 ${isCritiqued ? 'bg-emerald-500' : 'bg-amber-500'} text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
+                            ${isCritiqued ? '<i class="fa-solid fa-check-double"></i> 已講評' : '<i class="fa-regular fa-comment"></i> 未批閱'}
+                        </span>
+                    </div>
+                    <div class="p-4 flex-grow flex flex-col justify-between space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-slate-800 text-base flex items-center space-x-1.5">
+                                <i class="fa-solid fa-file-signature text-slate-400"></i>
+                                <span>${art.studentName}</span>
+                            </h4>
+                        </div>
+                        <div class="text-xs text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg font-medium flex items-center justify-between">
+                            <span class="truncate">任務：${art.taskTitle}</span>
+                        </div>
+                        ${art.comment ? `
+                            <p class="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl font-medium leading-relaxed truncate">
+                                <i class="fa-solid fa-quote-left text-[10px] mr-1 opacity-60"></i>${art.comment}
+                            </p>
+                        ` : ''}
+                    </div>
+                `;
+                gridTeacher.appendChild(teacherCard);
+
+
+                // --- 2. 建立學生觀摩卡片 ---
+                const studentCard = document.createElement('div');
+                studentCard.className = "bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col relative";
+                studentCard.innerHTML = `
+                    <div class="aspect-[4/3] bg-slate-100 overflow-hidden relative">
+                        <img class="w-full h-full object-cover" src="${art.image}" alt="作品">
+                        ${art.annotations ? `<img class="absolute inset-0 w-full h-full object-cover pointer-events-none" src="${art.annotations}">` : ''}
+                        <span class="absolute bottom-2 left-2 bg-black/60 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">${timeStr}</span>
+                    </div>
+                    <div class="p-3 space-y-2 flex-grow flex flex-col justify-between">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">${art.studentName}</h4>
+                            <p class="text-[10px] text-slate-400 truncate">任務：${art.taskTitle}</p>
+                        </div>
+                        ${art.comment ? `
+                            <div class="bg-indigo-50 p-2 rounded-lg text-[10px] text-indigo-700 leading-normal">
+                                <strong>評語：</strong>${art.comment}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                gridStudent.appendChild(studentCard);
+            });
+        }
+
+        // 更新實時看板數據
+        function updateStats() {
+            const total = allArtworksList.length;
+            const pending = allArtworksList.filter(art => !art.comment && !art.annotations).length;
+
+            document.getElementById('stat-count').textContent = total;
+            document.getElementById('stat-pending').textContent = pending;
+        }
+
+        // ==================== 8. 線上畫筆與放大旋轉批閱 (Critique Panel) ====================
+        const critCanvas = document.getElementById('critique-canvas');
+        const critCtx = critCanvas.getContext('2d');
+        const critImg = document.getElementById('critique-image');
+
+        function openCritique(docId) {
+            const artwork = allArtworksList.find(a => a.id === docId);
+            if (!artwork) return;
+
+            activeCritiqueDocId = docId;
+            critiqueImgRotation = 0;
+
+            // 載入資料至 Modal
+            document.getElementById('critique-student-tag').textContent = `${artwork.studentName} 的作品`;
+            document.getElementById('critique-task-title').textContent = `任務：${artwork.taskTitle}`;
+            document.getElementById('critique-timestamp').textContent = `上傳時間：${new Date(artwork.timestamp).toLocaleString()}`;
+            document.getElementById('critique-comment').value = artwork.comment || '';
+
+            // 原圖載入
+            critImg.src = artwork.image;
+            critImg.style.transform = `rotate(0deg)`;
+
+            // 開啟視窗
+            document.getElementById('modal-critique').classList.remove('hidden');
+
+            // 等待圖片完全渲染載入後，調整透明畫筆畫布
+            critImg.onload = function() {
+                resizeCritiqueCanvas(artwork.annotations);
+            };
+            
+            // 處理視窗大小改變
+            window.addEventListener('resize', handleCritiqueResize);
+        }
+
+        function closeCritiqueModal() {
+            document.getElementById('modal-critique').classList.add('hidden');
+            window.removeEventListener('resize', handleCritiqueResize);
+            activeCritiqueDocId = null;
+        }
+
+        function handleCritiqueResize() {
+            if (!activeCritiqueDocId) return;
+            const artwork = allArtworksList.find(a => a.id === activeCritiqueDocId);
+            if (artwork) {
+                // 儲存目前畫布內容，避免 resize 消失
+                const tempImage = critCanvas.toDataURL();
+                resizeCritiqueCanvas(tempImage);
+            }
+        }
+
+        // 核心：等比例縮放透明畫布，確保畫筆坐標與底圖 100% 響應式貼合
+        function resizeCritiqueCanvas(existingAnnotationsBase64) {
+            // 取得渲染後的原圖實際高寬與位置
+            const rect = critImg.getBoundingClientRect();
+            
+            critCanvas.style.left = `${critImg.offsetLeft}px`;
+            critCanvas.style.top = `${critImg.offsetTop}px`;
+            critCanvas.style.width = `${rect.width}px`;
+            critCanvas.style.height = `${rect.height}px`;
+
+            // 設定畫布內部解析度與圖片實際比例一致，防止畫筆模糊
+            critCanvas.width = rect.width;
+            critCanvas.height = rect.height;
+
+            // 清空畫布
+            critCtx.clearRect(0, 0, critCanvas.width, critCanvas.height);
+
+            // 若已有儲存的標註，將其等比例繪製回新畫布
+            if (existingAnnotationsBase64) {
+                const annoImg = new Image();
+                annoImg.onload = function() {
+                    critCtx.drawImage(annoImg, 0, 0, rect.width, rect.height);
+                }
+                annoImg.src = existingAnnotationsBase64;
+            }
+        }
+
+        // 旋轉功能 (支援 90 度遞增)
+        function rotateImage() {
+            critiqueImgRotation = (critiqueImgRotation + 90) % 360;
+            critImg.style.transform = `rotate(${critiqueImgRotation}deg)`;
+            
+            // 旋轉後原圖的外框比例會對調，重新定位畫布
+            setTimeout(() => {
+                resizeCritiqueCanvas();
+            }, 250);
+        }
+
+        // 畫筆設定
+        function setBrushColor(color, element) {
+            brushColor = color;
+            // 移除其他按鈕的選取外圈
+            const buttons = element.parentElement.querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.className = btn.className.replace('ring-rose-500/50', 'ring-transparent')
+                                             .replace('ring-yellow-500/50', 'ring-transparent')
+                                             .replace('ring-emerald-500/50', 'ring-transparent')
+                                             .replace('ring-blue-500/50', 'ring-transparent')
+                                             .replace('ring-indigo-600/50', 'ring-transparent');
+            });
+            // 加上當前選取外圈
+            if (color === 'eraser') {
+                element.classList.add('ring-indigo-600/50');
+            } else {
+                element.classList.add(`ring-${color.startsWith('#f') ? 'rose' : color.startsWith('#y') ? 'yellow' : color.startsWith('#e') ? 'emerald' : 'blue'}-500/50`);
+            }
+        }
+
+        function updateBrushSize(val) {
+            brushWidth = val;
+            document.getElementById('brush-size-text').textContent = `${val}px`;
+        }
+
+        function clearCritiqueCanvas() {
+            critCtx.clearRect(0, 0, critCanvas.width, critCanvas.height);
+            showToast("批閱筆跡已清除！", "info");
+        }
+
+        // 畫筆簽章/滑鼠/觸控拖拉繪製邏輯 (相容滑鼠與平板觸控)
+        function initDrawingEvents() {
+            const startDraw = (x, y) => {
+                isDrawing = true;
+                [lastX, lastY] = [x, y];
+            };
+
+            const draw = (x, y) => {
+                if (!isDrawing) return;
+
+                critCtx.beginPath();
+                critCtx.moveTo(lastX, lastY);
+                critCtx.lineTo(x, y);
+
+                if (brushColor === 'eraser') {
+                    // 橡皮擦模式
+                    critCtx.globalCompositeOperation = 'destination-out';
+                    critCtx.lineWidth = brushWidth * 1.5;
+                } else {
+                    critCtx.globalCompositeOperation = 'source-over';
+                    critCtx.strokeStyle = brushColor;
+                    critCtx.lineWidth = brushWidth;
+                }
+
+                critCtx.lineCap = 'round';
+                critCtx.lineJoin = 'round';
+                critCtx.stroke();
+                [lastX, lastY] = [x, y];
+            };
+
+            const stopDraw = () => {
+                isDrawing = false;
+            };
+
+            // 滑鼠事件
+            critCanvas.addEventListener('mousedown', (e) => {
+                const rect = critCanvas.getBoundingClientRect();
+                startDraw(e.clientX - rect.left, e.clientY - rect.top);
+            });
+            critCanvas.addEventListener('mousemove', (e) => {
+                const rect = critCanvas.getBoundingClientRect();
+                draw(e.clientX - rect.left, e.clientY - rect.top);
+            });
+            window.addEventListener('mouseup', stopDraw);
+
+            // 觸控事件 (相容平板 iPad/Apple Pencil)
+            critCanvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // 阻擋畫面滾動
+                const rect = critCanvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                startDraw(touch.clientX - rect.left, touch.clientY - rect.top);
+            }, { passive: false });
+
+            critCanvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const rect = critCanvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                draw(touch.clientX - rect.left, touch.clientY - rect.top);
+            }, { passive: false });
+
+            critCanvas.addEventListener('touchend', stopDraw);
+        }
+
+        // 儲存講評 (更新至 Firestore)
+        async function saveCritique() {
+            if (isDemoMode) {
+                // Demo 模式下只更新本機資料
+                const artIdx = allArtworksList.findIndex(a => a.id === activeCritiqueDocId);
+                if (artIdx !== -1) {
+                    allArtworksList[artIdx].comment = document.getElementById('critique-comment').value.trim();
+                    allArtworksList[artIdx].annotations = critCanvas.toDataURL();
+                    renderGallery();
+                    updateStats();
+                    showToast("模擬講評已在本機儲存！", "success");
+                }
+                closeCritiqueModal();
+                return;
+            }
+
+            const comment = document.getElementById('critique-comment').value.trim();
+            const annotationsBase64 = critCanvas.toDataURL(); // 輸出透明批閱層
+            
+            showToast("正在上傳並儲存講評...", "warning");
+            
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'artworks', activeCritiqueDocId);
+
+                await updateDoc(docRef, {
+                    comment: comment,
+                    annotations: annotationsBase64
+                });
+
+                showToast("講評批閱已成功儲存並實時同步！", "success");
+                closeCritiqueModal();
+            } catch (err) {
+                showToast("儲存講評失敗，請檢查權限及連線！", "error");
+            }
+        }
+
+        // ==================== 9. 教師大螢幕驗證 ====================
+        function requestTeacherAccess() {
+            if (currentRole === 'teacher') return; // 已是教師
+
+            // 彈出密碼驗證框
+            document.getElementById('modal-password').classList.remove('hidden');
+            document.getElementById('teacher-pwd-input').focus();
+        }
+
+        function validateTeacherPassword() {
+            const pwd = document.getElementById('teacher-pwd-input').value;
+            if (pwd === 'tpet') {
+                switchRole('teacher');
+                closePasswordModal();
+                showToast("驗證成功！已切換至「教師大螢幕」模式", "success");
+            } else {
+                showToast("密碼錯誤，請輸入 TPET 密碼", "error");
+            }
+        }
+
+        function closePasswordModal() {
+            document.getElementById('modal-password').classList.add('hidden');
+            document.getElementById('teacher-pwd-input').value = "";
+        }
+
+        // 角色介面切換
+        function switchRole(role) {
+            currentRole = role;
+            const btnStudent = document.getElementById('tab-student');
+            const btnTeacher = document.getElementById('tab-teacher');
+            const panelStudent = document.getElementById('panel-student');
+            const panelTeacher = document.getElementById('panel-teacher');
+
+            if (role === 'student') {
+                btnStudent.className = "flex-1 py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 bg-white text-indigo-600 shadow-sm";
+                btnTeacher.className = "flex-1 py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-900";
+                panelStudent.classList.remove('hidden');
+                panelTeacher.classList.add('hidden');
+            } else if (role === 'teacher') {
+                btnTeacher.className = "flex-1 py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 bg-white text-indigo-600 shadow-sm";
+                btnStudent.className = "flex-1 py-3 px-6 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 text-slate-600 hover:text-slate-900";
+                panelTeacher.classList.remove('hidden');
+                panelStudent.classList.add('hidden');
+
+                // 教師端設定回顯
+                document.getElementById('task-input-title').value = currentTask.title;
+                document.getElementById('task-input-desc').value = currentTask.desc || '';
+            }
+        }
+
+        // ==================== 10. 設定與 QR Code 慢速產生 (Share Tool) ====================
+        function openSettingsModal() {
+            document.getElementById('modal-settings').classList.remove('hidden');
+            
+            // 讀取目前的設定文字並填入 input
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const stored = localStorage.getItem(`firebaseConfig_${appId}`);
+            if (stored) {
+                const configObj = JSON.parse(stored);
+                let formatted = "";
+                for (const [key, value] of Object.entries(configObj)) {
+                    formatted += `${key}: "${value}",\n`;
+                }
+                document.getElementById('config-textarea').value = formatted;
+            } else if (!isDemoMode) {
+                // 如果是硬編碼直接有效
+                let formatted = "";
+                for (const [key, value] of Object.entries(activeConfig)) {
+                    formatted += `${key}: "${value}",\n`;
+                }
+                document.getElementById('config-textarea').value = formatted;
+            }
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('modal-settings').classList.add('hidden');
+        }
+
+        function openHelpModal() {
+            document.getElementById('modal-help').classList.remove('hidden');
+        }
+
+        function closeHelpModal() {
+            document.getElementById('modal-help').classList.add('hidden');
+        }
+
+        // 強效自動解析 Key-Value 物件 (Auto Parsing)
+        function saveConfigFromTextarea() {
+            const rawText = document.getElementById('config-textarea').value;
+            const keys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+            const configObj = {};
+
+            // 1. 嘗試極簡 JSON 容錯解析
+            try {
+                let cleaned = rawText.trim();
+                if (!cleaned.startsWith('{')) cleaned = '{' + cleaned;
+                if (!cleaned.endsWith('}')) cleaned = cleaned + '}';
+                cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+                cleaned = cleaned.replace(/'/g, '"');
+                const parsed = JSON.parse(cleaned);
+                let count = 0;
+                keys.forEach(k => {
+                    if (parsed[k]) {
+                        configObj[k] = parsed[k].trim();
+                        count++;
+                    }
+                });
+                if (count >= 4) {
+                    saveAndReload(configObj);
+                    return;
+                }
+            } catch(e) {}
+
+            // 2. 正規表達式行匹配解析 (更精準容錯)
+            keys.forEach(k => {
+                const regex = new RegExp(`${k}\\s*:\\s*["'\`]([^"'\\\`]+)["'\`]`);
+                const match = rawText.match(regex);
+                if (match && match[1]) {
+                    configObj[k] = match[1].trim();
+                }
+            });
+
+            // 檢查有效性
+            const missing = keys.filter(k => !configObj[k]);
+            if (missing.length > 0) {
+                showToast(`解析失敗，缺少關鍵設定：${missing.join(', ')}`, "error");
+                return;
+            }
+
+            saveAndReload(configObj);
+        }
+
+        function saveAndReload(configObj) {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            localStorage.setItem(`firebaseConfig_${appId}`, JSON.stringify(configObj));
+            showToast("Firebase 連線設定已儲存！即將自動重整更新連線...", "success");
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        }
+
+        function resetConfig() {
+            showConfirm("清除連線設定", "確定要清除在此本機儲存的所有 Firebase 設定嗎？清除後系統將會回到未設定狀態。", () => {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                localStorage.removeItem(`firebaseConfig_${appId}`);
+                showToast("本機連線設定已完全清除，即將重整網頁...", "success");
+                setTimeout(() => {
+                    location.reload();
+                }, 1200);
+            });
+        }
+
+        // 生成分享設定連結與二維碼
+        function generateShareLinks() {
+            if (isDemoMode) return;
+
+            const base64Str = btoa(JSON.stringify(activeConfig));
+            const shareUrl = `${window.location.origin}${window.location.pathname}?config=${base64Str}`;
+            
+            // 填入分享輸入框
+            document.getElementById('share-url-input').value = shareUrl;
+
+            // 生成連線分享 QR Code (Qrious)
+            new QRious({
+                element: document.getElementById('qr-canvas-config'),
+                value: shareUrl,
+                size: 150,
+                background: '#ffffff',
+                foreground: '#4f46e5'
+            });
+
+            // 生成「學生快速連線入口 QR Code」（直接連到此 SPA student 視窗）
+            new QRious({
+                element: document.getElementById('qr-canvas-student'),
+                value: shareUrl,
+                size: 150,
+                background: '#ffffff',
+                foreground: '#4f46e5'
+            });
+        }
+
+        function copyStudentLink() {
+            const link = document.getElementById('share-url-input').value;
+            if (!link) {
+                showToast("請先完成連線配置！", "warning");
+                return;
+            }
+            copyToClipboard(link);
+            showToast("學生入口直連連結已複製！", "success");
+        }
+
+        function copyShareLink() {
+            const link = document.getElementById('share-url-input').value;
+            if (!link) return;
+            copyToClipboard(link);
+            showToast("加密分享連結已複製，其他人點擊此連結將能直接自動連線您的資料庫！", "success");
+        }
+
+        function copyToClipboard(text) {
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+        }
+
+        // ==================== 11. 自訂 UI 元件 (Toast 與 Confirm) ====================
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = "px-4 py-3 rounded-xl shadow-xl border text-sm font-bold flex items-center space-x-3 pointer-events-auto transition duration-300 transform translate-y-4 opacity-0";
+            
+            const icons = {
+                success: '<i class="fa-solid fa-circle-check text-emerald-500 text-base"></i>',
+                error: '<i class="fa-solid fa-circle-exclamation text-rose-500 text-base"></i>',
+                warning: '<i class="fa-solid fa-triangle-exclamation text-amber-500 text-base"></i>',
+                info: '<i class="fa-solid fa-circle-info text-blue-500 text-base"></i>'
+            };
+
+            const bgClasses = {
+                success: 'bg-white border-slate-100 text-slate-800',
+                error: 'bg-rose-50 border-rose-100 text-rose-800',
+                warning: 'bg-amber-50 border-amber-100 text-amber-800',
+                info: 'bg-white border-slate-100 text-slate-800'
+            };
+
+            toast.className += ` ${bgClasses[type]}`;
+            toast.innerHTML = `${icons[type]} <span>${message}</span>`;
+            container.appendChild(toast);
+
+            // 動態淡入
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 50);
+
+            // 自動淡出銷毀
+            setTimeout(() => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        function showConfirm(title, message, onOk) {
+            const modal = document.getElementById('modal-confirm');
+            const confirmTitle = document.getElementById('confirm-title');
+            const confirmMsg = document.getElementById('confirm-message');
+            const btnCancel = document.getElementById('btn-confirm-cancel');
+            const btnOk = document.getElementById('btn-confirm-ok');
+
+            confirmTitle.textContent = title;
+            confirmMsg.textContent = message;
+
+            modal.classList.remove('hidden');
+
+            const cleanUp = () => {
+                modal.classList.add('hidden');
+                btnOk.onclick = null;
+                btnCancel.onclick = null;
+            };
+
+            btnCancel.onclick = cleanUp;
+            btnOk.onclick = () => {
+                onOk();
+                cleanUp();
+            };
+        }
+
+        // 用於連線狀態顯示更新
+        function updateConnectionBadge() {
+            const badge = document.getElementById('connection-badge');
+            if (isDemoMode) {
+                badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 flex items-center space-x-1";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>示範體驗中</span>`;
+            } else {
+                badge.className = "px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center space-x-1";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span><span>雲端連線中...</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
